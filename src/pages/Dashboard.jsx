@@ -198,7 +198,9 @@ export default function Dashboard() {
         const { video_id, upload_url, file_name } = await getPresignedUrl(videoSource.file.name)
         videoId = video_id
 
-        await uploadToPresignedUrl(upload_url, videoSource.file, (pct) => {
+        const renamedFile = new File([videoSource.file], file_name, { type: videoSource.file.type })
+
+        await uploadToPresignedUrl(upload_url, renamedFile, (pct) => {
           setUploadProgress(pct)
         })
 
