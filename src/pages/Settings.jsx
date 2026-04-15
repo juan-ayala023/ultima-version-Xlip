@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import { getCurrentUser, getSupportData, logout } from '../api/client'
+import { usePreferences } from '../lib/preferences'
 
 const platforms = [
   { id: 'tiktok', name: 'TikTok', icon: '🎵', connected: true, accounts: 3 },
@@ -12,7 +15,7 @@ function Toggle({ value, onChange }) {
   return (
     <button
       onClick={() => onChange(!value)}
-      className={`w-10 h-5.5 rounded-full flex items-center px-0.5 transition-all duration-200 flex-shrink-0 border`}
+      className="rounded-full flex items-center px-0.5 transition-all duration-200 flex-shrink-0 border"
       style={{
         width: '40px',
         height: '22px',
@@ -25,73 +28,124 @@ function Toggle({ value, onChange }) {
 }
 
 export default function Settings() {
-  const [prefs, setPrefs] = useState({
-    autoPublish: false,
-    emailNotifications: true,
-    processingNotifications: true,
-    weeklyReport: true,
-    autoSubtitles: true,
-    faceTracking: true,
-    watermark: false,
-    highQuality: true,
-  })
+  const navigate = useNavigate()
+  const user = getCurrentUser()
+  const [prefs, updatePrefs] = usePreferences()
+  const [support, setSupport] = useState(null)
+  const [savedFlash, setSavedFlash] = useState(false)
 
-  const [profile, setProfile] = useState({
-    name: '',
-    email: 'usuario@xlip.io',
-    company: '',
-  })
+  useEffect(() => {
+    let alive = true
+    getSupportData()
+      .then((data) => { if (alive) setSupport(data) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   function toggle(key) {
-    setPrefs(prev => ({ ...prev, [key]: !prev[key] }))
+    updatePrefs({ toggles: { [key]: !prefs.toggles[key] } })
+    flashSaved()
   }
+
+  function setDefault(key, value) {
+    updatePrefs({ defaults: { [key]: value } })
+    flashSaved()
+  }
+
+  function flashSaved() {
+    setSavedFlash(true)
+    clearTimeout(flashSaved._t)
+    flashSaved._t = setTimeout(() => setSavedFlash(false), 1500)
+  }
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
+  const languages = support?.Languages ?? []
+  const prompts = support?.Prompts ?? []
+  const formats = support?.VideoFormats ?? []
 
   return (
     <div className="min-h-screen bg-bg flex">
       <Sidebar />
 
       <main className="flex-1 ml-60 min-h-screen">
-        {/* Top bar */}
-        <div className="sticky top-0 z-30 h-14 flex items-center px-6 border-b border-xborder glass">
+        <div className="sticky top-0 z-30 h-14 flex items-center justify-between px-6 border-b border-xborder glass">
           <h1 className="font-display font-bold text-base text-white">Configuración</h1>
+          {savedFlash && (
+            <span className="text-xs text-xgreen font-mono flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-xgreen animate-pulse" />
+              Guardado
+            </span>
+          )}
         </div>
 
         <div className="p-6 lg:p-8 max-w-3xl">
           <div className="space-y-6">
 
-            {/* Profile */}
+            {/* Perfil (resumen) */}
             <Section title="Perfil" icon="👤">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-xborder bg-surface2">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold text-white flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #10B981, #A855F7)' }}>
-                    U
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white text-sm font-semibold">{profile.email}</p>
-                    <p className="text-xmuted text-xs">Plan Pro · Activo</p>
-                  </div>
-                  <button className="px-3 py-1.5 text-xs font-medium border border-xborder rounded-lg text-xmuted hover:text-white hover:border-xmuted transition-all">
-                    Editar
-                  </button>
+              <div className="flex items-center gap-4 p-4 rounded-xl border border-xborder bg-surface2">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold text-white flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #10B981, #A855F7)' }}>
+                  {(user?.email?.[0] || 'U').toUpperCase()}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { label: 'Nombre', key: 'name', placeholder: 'Tu nombre' },
-                    { label: 'Empresa', key: 'company', placeholder: 'Tu empresa (opcional)' },
-                  ].map(field => (
-                    <div key={field.key}>
-                      <label className="text-xs text-xmuted font-medium block mb-1.5">{field.label}</label>
-                      <input
-                        type="text"
-                        value={profile[field.key]}
-                        onChange={e => setProfile(prev => ({ ...prev, [field.key]: e.target.value }))}
-                        placeholder={field.placeholder}
-                        className="w-full bg-surface2 border border-xborder rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-xmuted/40 focus:outline-none focus:border-xgreen transition-colors"
-                      />
-                    </div>
-                  ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-semibold truncate">{user?.email || 'Sesión activa'}</p>
+                  <p className="text-xmuted text-xs">
+                    {user?.plan_id ? `Plan ${String(user.plan_id).toUpperCase()} · ` : ''}Activo
+                  </p>
                 </div>
+                <button
+                  onClick={() => navigate('/perfil')}
+                  className="px-3 py-1.5 text-xs font-medium border border-xborder rounded-lg text-xmuted hover:text-white hover:border-xmuted transition-all">
+                  Ver perfil
+                </button>
+              </div>
+            </Section>
+
+            {/* Valores por defecto */}
+            <Section title="Valores por defecto" icon="🎛️">
+              <p className="text-xs text-xmuted mb-4">
+                Se aplican automáticamente cada vez que subís un video nuevo.
+              </p>
+
+              <div className="space-y-5">
+                <PrefField label="Idioma">
+                  <SelectGrid
+                    items={languages}
+                    valueKey="language_id"
+                    labelKey="language"
+                    selected={prefs.defaults.language_id}
+                    onChange={(v) => setDefault('language_id', v)}
+                    empty="Cargando idiomas..."
+                  />
+                </PrefField>
+
+                <PrefField label="Formato">
+                  <SelectGrid
+                    items={formats}
+                    valueKey="format_video"
+                    labelKey="format_video"
+                    selected={prefs.defaults.format}
+                    onChange={(v) => setDefault('format', v)}
+                    empty="Cargando formatos..."
+                  />
+                </PrefField>
+
+                <PrefField label="Prompt / Trend">
+                  <SelectGrid
+                    items={prompts}
+                    valueKey="prompt_id"
+                    labelKey="trend_name"
+                    selected={prefs.defaults.prompt_id}
+                    onChange={(v) => setDefault('prompt_id', v)}
+                    empty="Cargando prompts..."
+                    wide
+                  />
+                </PrefField>
               </div>
             </Section>
 
@@ -135,13 +189,13 @@ export default function Settings() {
             {/* Publicación automática */}
             <Section title="Publicación automática" icon="🚀">
               <div className="space-y-2">
-                {[
-                  { key: 'autoPublish', label: 'Publicar clips automáticamente', desc: 'Los clips aprobados se publican solos en todas las plataformas conectadas' },
-                ].map(item => (
-                  <ToggleRow key={item.key} {...item} value={prefs[item.key]} onChange={() => toggle(item.key)} />
-                ))}
-
-                {prefs.autoPublish && (
+                <ToggleRow
+                  label="Publicar clips automáticamente"
+                  desc="Los clips aprobados se publican solos en todas las plataformas conectadas"
+                  value={prefs.toggles.autoPublish}
+                  onChange={() => toggle('autoPublish')}
+                />
+                {prefs.toggles.autoPublish && (
                   <div className="mt-3 p-3 rounded-xl bg-xgreen/5 border border-xgreen/20 text-xs text-xgreen">
                     ⚡ La publicación automática está activa. Los clips con score ≥ 85 se publicarán sin revisión manual.
                   </div>
@@ -157,7 +211,9 @@ export default function Settings() {
                   { key: 'processingNotifications', label: 'Clips procesados', desc: 'Notificación cuando un clip está listo' },
                   { key: 'weeklyReport', label: 'Reporte semanal', desc: 'Resumen de performance cada lunes' },
                 ].map(item => (
-                  <ToggleRow key={item.key} {...item} value={prefs[item.key]} onChange={() => toggle(item.key)} />
+                  <ToggleRow key={item.key} {...item}
+                    value={prefs.toggles[item.key]}
+                    onChange={() => toggle(item.key)} />
                 ))}
               </div>
             </Section>
@@ -171,42 +227,28 @@ export default function Settings() {
                   { key: 'watermark', label: 'Marca de agua XLIP', desc: 'Añadir watermark en clips no verificados' },
                   { key: 'highQuality', label: 'Exportación en alta calidad', desc: '4K cuando esté disponible · consume más créditos' },
                 ].map(item => (
-                  <ToggleRow key={item.key} {...item} value={prefs[item.key]} onChange={() => toggle(item.key)} />
+                  <ToggleRow key={item.key} {...item}
+                    value={prefs.toggles[item.key]}
+                    onChange={() => toggle(item.key)} />
                 ))}
               </div>
             </Section>
 
-            {/* Danger zone */}
-            <Section title="Zona de peligro" icon="⚠️" danger>
+            {/* Sesión */}
+            <Section title="Sesión" icon="⚠️" danger>
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3.5 rounded-xl border border-red-400/20 bg-red-400/5">
                   <div>
-                    <p className="text-sm font-medium text-white">Eliminar todos los clips</p>
-                    <p className="text-xs text-xmuted">Esta acción no se puede deshacer</p>
+                    <p className="text-sm font-medium text-white">Cerrar sesión</p>
+                    <p className="text-xs text-xmuted">Vas a necesitar iniciar sesión de nuevo.</p>
                   </div>
-                  <button className="px-3 py-1.5 text-xs font-semibold border border-red-400/40 text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
-                    Eliminar
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-3.5 rounded-xl border border-red-400/20 bg-red-400/5">
-                  <div>
-                    <p className="text-sm font-medium text-white">Cancelar suscripción</p>
-                    <p className="text-xs text-xmuted">Tu plan se mantiene hasta fin del período actual</p>
-                  </div>
-                  <button className="px-3 py-1.5 text-xs font-semibold border border-red-400/40 text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
-                    Cancelar
+                  <button onClick={handleLogout}
+                    className="px-3 py-1.5 text-xs font-semibold border border-red-400/40 text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
+                    Logout
                   </button>
                 </div>
               </div>
             </Section>
-
-            {/* Save button */}
-            <div className="flex justify-end">
-              <button className="px-6 py-3 rounded-xl font-semibold text-sm text-bg hover:opacity-90 transition-all"
-                style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
-                Guardar cambios
-              </button>
-            </div>
           </div>
         </div>
       </main>
@@ -238,6 +280,38 @@ function ToggleRow({ label, desc, value, onChange }) {
         <p className="text-xs text-xmuted mt-0.5">{desc}</p>
       </div>
       <Toggle value={value} onChange={onChange} />
+    </div>
+  )
+}
+
+function PrefField({ label, children }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-xmuted uppercase tracking-wider mb-2">{label}</p>
+      {children}
+    </div>
+  )
+}
+
+function SelectGrid({ items, valueKey, labelKey, selected, onChange, empty, wide }) {
+  if (!items || items.length === 0) {
+    return <p className="text-xmuted text-xs">{empty}</p>
+  }
+  return (
+    <div className={`grid gap-2 ${wide ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
+      {items.map((item) => {
+        const v = item[valueKey]
+        const active = selected === v
+        return (
+          <button key={v} type="button" onClick={() => onChange(active ? null : v)}
+            className={`px-3 py-2.5 rounded-xl text-sm font-medium border transition-all text-left truncate
+              ${active
+                ? 'border-xgreen/40 bg-xgreen/10 text-xgreen'
+                : 'border-xborder bg-surface2 text-white hover:border-xmuted'}`}>
+            {item[labelKey]}
+          </button>
+        )
+      })}
     </div>
   )
 }

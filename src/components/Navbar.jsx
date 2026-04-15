@@ -57,11 +57,13 @@ export default function Navbar({ transparent = false }) {
 
         {/* CTA buttons */}
         <div className="flex items-center gap-3">
-          <button className="hidden md:block text-sm text-xmuted hover:text-white transition-colors font-medium">
+          <button
+            onClick={() => navigate('/login')}
+            className="hidden md:block text-sm text-xmuted hover:text-white transition-colors font-medium">
             Login
           </button>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/login')}
             className="px-4 py-2 rounded-xl text-sm font-semibold text-bg transition-all duration-200 hover:opacity-90 active:scale-95"
             style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
             Comenzar

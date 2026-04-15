@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { loadPrefs } from '../lib/preferences'
 
 const clipDurations = [
   { value: 15, label: '15s', desc: 'Ultra corto' },
@@ -49,12 +50,24 @@ export default function ConfigPanel({ videoSource, supportData, onProcess, onBac
   const prompts = supportData?.Prompts ?? []
   const videoFormats = supportData?.VideoFormats ?? []
 
-  const [config, setConfig] = useState({
-    language_id: languages[0]?.language_id ?? 1,
-    format: videoFormats[0]?.format_video ?? '9:16',
-    prompt_id: prompts[0]?.prompt_id ?? 1,
-    duration: 60,
-    numClips: 5,
+  const [config, setConfig] = useState(() => {
+    const { defaults } = loadPrefs()
+    const pickLang = defaults.language_id && languages.some(l => l.language_id === defaults.language_id)
+      ? defaults.language_id
+      : languages[0]?.language_id ?? 1
+    const pickFormat = defaults.format && videoFormats.some(f => f.format_video === defaults.format)
+      ? defaults.format
+      : videoFormats[0]?.format_video ?? '9:16'
+    const pickPrompt = defaults.prompt_id && prompts.some(p => p.prompt_id === defaults.prompt_id)
+      ? defaults.prompt_id
+      : prompts[0]?.prompt_id ?? 1
+    return {
+      language_id: pickLang,
+      format: pickFormat,
+      prompt_id: pickPrompt,
+      duration: 60,
+      numClips: 5,
+    }
   })
 
   function set(key, value) {

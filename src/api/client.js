@@ -1,23 +1,71 @@
 const BASE_URL = '/api'
-const CREDENTIALS = { username: 'juanjo_test@test.com', password: '10789547852' }
+const TOKEN_KEY = 'xlip_token'
 
-let _token = localStorage.getItem('xlip_token') || null
+let _token = localStorage.getItem(TOKEN_KEY) || null
+const _listeners = new Set()
 
-async function fetchToken() {
+function setToken(token) {
+  _token = token || null
+  if (_token) localStorage.setItem(TOKEN_KEY, _token)
+  else localStorage.removeItem(TOKEN_KEY)
+  _listeners.forEach((fn) => { try { fn(_token) } catch {} })
+}
+
+export function getStoredToken() {
+  return _token
+}
+
+export function isAuthenticated() {
+  return Boolean(_token)
+}
+
+function decodeJwt(token) {
+  try {
+    const payload = token.split('.')[1]
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const decoded = decodeURIComponent(
+      json.split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    )
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+export function getCurrentUser() {
+  if (!_token) return null
+  const p = decodeJwt(_token)
+  if (!p) return null
+  return {
+    email: p.email ?? p.sub ?? p.username ?? null,
+    plan_id: p.plan_id ?? p.plan ?? null,
+    user_id: p.user_id ?? p.uid ?? p.id ?? null,
+    exp: p.exp ?? null,
+    iat: p.iat ?? null,
+    raw: p,
+  }
+}
+
+export function onAuthChange(fn) {
+  _listeners.add(fn)
+  return () => _listeners.delete(fn)
+}
+
+export async function login({ username, password }) {
   const body = new URLSearchParams()
-  body.append('username', CREDENTIALS.username)
-  body.append('password', CREDENTIALS.password)
+  body.append('username', username)
+  body.append('password', password)
 
   const res = await fetch(`${BASE_URL}/user/token`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   })
-  if (!res.ok) throw new Error('Error de autenticación')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail?.[0]?.msg ?? err.detail ?? 'Credenciales inválidas')
+  }
   const text = await res.text()
-  // El backend devuelve el token como string plano o como JSON string
   let token
   try {
     const parsed = JSON.parse(text)
@@ -25,31 +73,31 @@ async function fetchToken() {
   } catch {
     token = text.trim()
   }
-  _token = token
-  localStorage.setItem('xlip_token', _token)
-  return _token
+  if (!token) throw new Error('Token vacío en la respuesta')
+  setToken(token)
+  return token
 }
 
-async function getToken() {
-  if (_token) return _token
-  return fetchToken()
+export function logout() {
+  setToken(null)
 }
 
-async function request(path, options = {}, retried = false) {
-  const token = await getToken()
+async function request(path, options = {}) {
+  if (!_token) {
+    const err = new Error('No autenticado')
+    err.status = 401
+    throw err
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${_token}`,
       ...options.headers,
     },
   })
 
-  if (res.status === 401 && !retried) {
-    _token = null
-    localStorage.removeItem('xlip_token')
-    await fetchToken()
-    return request(path, options, true)
+  if (res.status === 401) {
+    setToken(null)
   }
 
   return res
