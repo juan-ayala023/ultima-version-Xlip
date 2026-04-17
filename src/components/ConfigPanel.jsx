@@ -44,11 +44,19 @@ const formatIcons = {
   '4:5': { icon: '📷', desc: 'Instagram · Portrait' },
 }
 
-// supportData: { Languages, Prompts, VideoFormats } — from /support/
+const editFormatIcons = {
+  Automatic: { icon: '🤖', desc: 'Corte automático' },
+  Dual: { icon: '🎭', desc: 'Doble cámara' },
+  Split: { icon: '🪞', desc: 'Pantalla dividida' },
+  Focus: { icon: '🎯', desc: 'Foco en el rostro' },
+}
+
+// supportData: { Languages, Prompts, VideoFormats, EditFormats } — from /support/
 export default function ConfigPanel({ videoSource, supportData, onProcess, onBack }) {
   const languages = supportData?.Languages ?? []
   const prompts = supportData?.Prompts ?? []
   const videoFormats = supportData?.VideoFormats ?? []
+  const editFormats = supportData?.EditFormats ?? []
 
   const [config, setConfig] = useState(() => {
     const { defaults } = loadPrefs()
@@ -61,10 +69,14 @@ export default function ConfigPanel({ videoSource, supportData, onProcess, onBac
     const pickPrompt = defaults.prompt_id && prompts.some(p => p.prompt_id === defaults.prompt_id)
       ? defaults.prompt_id
       : prompts[0]?.prompt_id ?? 1
+    const pickEditFormat = defaults.edit_format && editFormats.some(e => e.edit_format_id === defaults.edit_format)
+      ? defaults.edit_format
+      : editFormats[0]?.edit_format_id ?? 1
     return {
       language_id: pickLang,
       format: pickFormat,
       prompt_id: pickPrompt,
+      edit_format: pickEditFormat,
       duration: 60,
       numClips: 5,
     }
@@ -77,6 +89,7 @@ export default function ConfigPanel({ videoSource, supportData, onProcess, onBac
   const selectedLang = languages.find(l => l.language_id === config.language_id)
   const selectedPrompt = prompts.find(p => p.prompt_id === config.prompt_id)
   const selectedFormat = videoFormats.find(f => f.format_video === config.format)
+  const selectedEditFormat = editFormats.find(e => e.edit_format_id === config.edit_format)
 
   return (
     <div className="w-full max-w-3xl mx-auto animate-fade-up">
@@ -138,6 +151,31 @@ export default function ConfigPanel({ videoSource, supportData, onProcess, onBac
             })}
           </div>
         </Section>
+
+        {/* Formato de edición (EditFormats) */}
+        {editFormats.length > 0 && (
+          <Section title="Formato de edición" icon="✂️">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {editFormats.map(ef => {
+                const meta = editFormatIcons[ef.format_name] ?? { icon: '🎛️', desc: '' }
+                const active = config.edit_format === ef.edit_format_id
+                return (
+                  <button key={ef.edit_format_id} onClick={() => set('edit_format', ef.edit_format_id)}
+                    className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border transition-all duration-150
+                      ${active
+                        ? 'border-xpurple bg-xpurple/10'
+                        : 'border-xborder bg-surface2 hover:border-xmuted'}`}>
+                    <span className="text-2xl">{meta.icon}</span>
+                    <span className={`text-sm font-bold ${active ? 'text-xpurple' : 'text-white'}`}>
+                      {ef.format_name}
+                    </span>
+                    <span className="text-xs text-xmuted text-center leading-tight">{meta.desc}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </Section>
+        )}
 
         {/* Tipo de contenido / Prompt */}
         <Section title="Tipo de contenido" icon="🎯">
@@ -201,10 +239,11 @@ export default function ConfigPanel({ videoSource, supportData, onProcess, onBac
             <h3 className="font-semibold text-white text-sm">Resumen</h3>
             <span className="text-xs text-xmuted font-mono">XLIP_CONFIG_READY</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-5">
             {[
               { label: 'Idioma', value: selectedLang?.language ?? '—' },
               { label: 'Formato', value: config.format },
+              { label: 'Edición', value: selectedEditFormat?.format_name ?? '—' },
               { label: 'Clips', value: config.numClips },
               { label: 'Duración', value: config.duration < 60 ? config.duration + 's' : config.duration / 60 + ' min' },
             ].map(item => (

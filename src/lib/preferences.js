@@ -21,6 +21,7 @@ export const defaultPrefs = {
     language_id: null,
     prompt_id: null,
     format: null,
+    edit_format: null,
   },
 }
 

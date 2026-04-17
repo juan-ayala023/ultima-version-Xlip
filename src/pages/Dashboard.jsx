@@ -187,6 +187,7 @@ export default function Dashboard() {
           prompt_id: config.prompt_id,
           language_id: config.language_id,
           format: config.format,
+          edit_format: config.edit_format,
         })
         videoId = result.video_id
 
@@ -210,6 +211,7 @@ export default function Dashboard() {
           file_name,
           prompt_id: config.prompt_id,
           language_id: config.language_id,
+          edit_format: config.edit_format,
         })
       }
 

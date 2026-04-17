@@ -227,16 +227,17 @@ export async function getSupportData() {
     languages: data?.Languages?.length,
     prompts: data?.Prompts?.length,
     formats: data?.VideoFormats?.length,
+    edit_formats: data?.EditFormats?.length,
   })
   return data
 }
 
 // ── Process URL ───────────────────────────────────────────────────────────────
-export async function processUrl({ url, prompt_id, language_id, format }) {
+export async function processUrl({ url, prompt_id, language_id, format, edit_format }) {
   const res = await request('/url/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, prompt_id, language_id, format }),
+    body: JSON.stringify({ url, prompt_id, language_id, format, edit_format }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -302,11 +303,11 @@ export async function uploadToPresignedUrl(uploadUrl, file, onProgress) {
   })
 }
 
-export async function initProcess(video_id, { file_name, prompt_id, language_id }) {
+export async function initProcess(video_id, { file_name, prompt_id, language_id, edit_format }) {
   const res = await request(`/videos/ready/${video_id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ file_name, prompt_id, language_id }),
+    body: JSON.stringify({ file_name, prompt_id, language_id, edit_format }),
   })
   if (!res.ok) throw new Error('Error al iniciar el procesamiento')
   const data = await res.json()
@@ -316,7 +317,7 @@ export async function initProcess(video_id, { file_name, prompt_id, language_id 
 
 // ── Polling ───────────────────────────────────────────────────────────────────
 export async function getVideoStatus(video_id) {
-  const res = await request(`/videos/status/${video_id}`)
+  const res = await request(`/status/${video_id}`)
   if (!res.ok) throw new Error('Error al obtener estado del video')
   const data = await res.json()
   console.log(`${LOG_PREFIX} ✓ getVideoStatus`, data)
@@ -324,7 +325,7 @@ export async function getVideoStatus(video_id) {
 }
 
 export async function getVideoDone(video_id) {
-  const res = await request(`/videos/done/${video_id}`)
+  const res = await request(`/status/done/${video_id}`)
   if (!res.ok) throw new Error('Error al obtener los clips')
   const data = await res.json()
   console.log(`${LOG_PREFIX} ✓ getVideoDone`, {
@@ -336,7 +337,7 @@ export async function getVideoDone(video_id) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Normaliza la respuesta de /videos/done al formato de UI esperado por ClipCard
+// Normaliza la respuesta de /status/done/{id} al formato de UI esperado por ClipCard
 export function normalizeClips(apiResponse, videoId) {
   if (!apiResponse) return []
 

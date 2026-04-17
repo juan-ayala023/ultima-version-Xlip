@@ -66,6 +66,7 @@ export default function Settings() {
   const languages = support?.Languages ?? []
   const prompts = support?.Prompts ?? []
   const formats = support?.VideoFormats ?? []
+  const editFormats = support?.EditFormats ?? []
 
   return (
     <div className="min-h-screen bg-bg flex">
@@ -132,6 +133,17 @@ export default function Settings() {
                     selected={prefs.defaults.format}
                     onChange={(v) => setDefault('format', v)}
                     empty="Cargando formatos..."
+                  />
+                </PrefField>
+
+                <PrefField label="Formato de edición">
+                  <SelectGrid
+                    items={editFormats}
+                    valueKey="edit_format_id"
+                    labelKey="format_name"
+                    selected={prefs.defaults.edit_format}
+                    onChange={(v) => setDefault('edit_format', v)}
+                    empty="Cargando formatos de edición..."
                   />
                 </PrefField>
 
